@@ -93,17 +93,21 @@ export default function Onboarding({ alTerminar }: { alTerminar: () => void }) {
       {paso === 'bienvenida' && (
         <Tarjeta className="space-y-4">
           <h2 className="text-xl font-semibold">Hola, Gatofeo 🐾</h2>
-          <p className="text-neutral-600">Entra con tu cuenta de Google para guardar tu clóset y usarlo en todos tus dispositivos.</p>
+          <p className="text-neutral-600">Tu clóset digital con estilista IA. Listo en 2 minutos.</p>
           {googleDisponible() ? (
-            <Boton onClick={entrar} disabled={ocupado} icono="G">
-              {ocupado ? 'Entrando…' : 'Entrar con Google'}
-            </Boton>
+            <>
+              <Boton onClick={entrar} disabled={ocupado} icono="G">
+                {ocupado ? 'Entrando…' : 'Entrar con Google'}
+              </Boton>
+              <button onClick={() => setPaso('llave')} className="w-full text-sm text-neutral-500 font-semibold py-2">
+                Usar Solo En Este Celular
+              </button>
+            </>
           ) : (
-            <Aviso>Entrar con Google se activa cuando se configure el Client ID. Por ahora puedes seguir sin cuenta.</Aviso>
+            <Boton onClick={() => setPaso('llave')} icono="🐾">
+              Empezar
+            </Boton>
           )}
-          <Boton variante="secundario" onClick={() => setPaso('llave')}>
-            Continuar Sin Google
-          </Boton>
         </Tarjeta>
       )}
 

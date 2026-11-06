@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useMoneda } from '../lib/moneda'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, ahora, leerAjuste, guardarAjuste, type Prenda, type EstadoPrenda, type Temporada } from '../db'
 import { Pantalla, Titulo, Chips, Hoja, Boton, Aviso } from '../components/ui'
@@ -107,6 +108,7 @@ export function DetallePrenda({ prenda, alCerrar, verOutfitsCon }: { prenda: Pre
   const [confirmarCosto, setConfirmarCosto] = useState(false)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState('')
+  const { formato } = useMoneda()
   if (!prenda) return null
   const p = prenda
   const act = (c: Partial<Prenda>) => db.prendas.update(p.id, { ...c, actualizadoEn: ahora() })
@@ -185,7 +187,7 @@ export function DetallePrenda({ prenda, alCerrar, verOutfitsCon }: { prenda: Pre
 
           {confirmarCosto ? (
             <div className="bg-white rounded-2xl p-4 text-center space-y-3 border-2 border-rosa-200">
-              <p className="font-semibold">💳 ≈ US${COSTO_IMAGEN_USD.toFixed(2)} · Lo Paga Tu Google</p>
+              <p className="font-semibold">💳 ≈ {formato(COSTO_IMAGEN_USD)} · Lo Paga Tu Google</p>
               <div className="grid grid-cols-2 gap-2">
                 <Boton onClick={catalogo}>Sí, Crear</Boton>
                 <Boton variante="secundario" onClick={() => setConfirmarCosto(false)}>

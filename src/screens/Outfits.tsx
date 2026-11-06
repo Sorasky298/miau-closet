@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useMoneda } from '../lib/moneda'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, leerAjuste, guardarAjuste, ahora, type Outfit } from '../db'
 import { Pantalla, Titulo, Chips, Boton, Aviso, Cargando, Tarjeta } from '../components/ui'
@@ -214,6 +215,7 @@ function Semana() {
   const [error, setError] = useState('')
   const [confirmar, setConfirmar] = useState(false)
   const [estadoLote, setEstadoLote] = useState('')
+  const { formato } = useMoneda()
 
   useEffect(() => {
     leerAjuste<Lookbook | null>('lookbook', null).then(async (l) => {
@@ -316,7 +318,7 @@ function Semana() {
           {perfil?.fotoCuerpo && !lb.lote && (
             confirmar ? (
               <div className="bg-white rounded-3xl p-4 text-center space-y-3 border-2 border-rosa-200">
-                <p className="font-semibold">💳 7 imágenes ≈ US${(7 * COSTO_IMAGEN_USD * 0.5).toFixed(2)} · Lo Paga Tu Google</p>
+                <p className="font-semibold">💳 7 imágenes ≈ {formato(7 * COSTO_IMAGEN_USD * 0.5)} · Lo Paga Tu Google</p>
                 <div className="grid grid-cols-2 gap-2">
                   <Boton onClick={verme7}>Sí, Crear</Boton>
                   <Boton variante="secundario" onClick={() => setConfirmar(false)}>

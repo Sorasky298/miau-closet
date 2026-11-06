@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useMoneda } from '../lib/moneda'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, leerAjuste, guardarAjuste, ahora, type Prenda, type Capa } from '../db'
 import { fotoDe, useUrl, collageParaCompartir, prepararFoto } from '../lib/imagen'
@@ -79,6 +80,7 @@ export function Probador({
   const [automatico, setAutomatico] = useState(true)
   const urlResultado = useUrl(resultado)
   const urlCuerpo = useUrl(perfil?.fotoCuerpo)
+  const { formato } = useMoneda()
 
   useEffect(() => {
     if (!abierto) return
@@ -152,7 +154,7 @@ export function Probador({
           <div className="text-6xl">💳</div>
           <h3 className="font-display text-2xl uppercase tracking-wider">Lo Paga Tu Google</h3>
           <div className="flex justify-center gap-2">
-            <span className="px-4 py-2 rounded-full bg-white border border-rosa-200 font-semibold">≈ US${COSTO_IMAGEN_USD.toFixed(2)} / Imagen</span>
+            <span className="px-4 py-2 rounded-full bg-white border border-rosa-200 font-semibold">≈ {formato(COSTO_IMAGEN_USD)} / Imagen</span>
           </div>
           <p className="text-sm text-neutral-500">Se cobra a tu cuenta de Google. MIAU no cobra nada.</p>
           <Boton onClick={generar} icono="🪄">
@@ -211,7 +213,7 @@ export function Probador({
                   <span className="block text-xs text-white/70">Aquí mismo · 10 seg</span>
                 </span>
               </span>
-              <span className="text-xs font-semibold bg-white/15 rounded-full px-3 py-1">≈ US${COSTO_IMAGEN_USD.toFixed(2)}</span>
+              <span className="text-xs font-semibold bg-white/15 rounded-full px-3 py-1">≈ {formato(COSTO_IMAGEN_USD)}</span>
             </button>
           )}
 
@@ -248,12 +250,13 @@ function OpcionApp({ icono, nombre, etiqueta, onClick }: { icono: string; nombre
 }
 
 function ContadorUso() {
+  const { formato } = useMoneda()
   const [uso, setUso] = useState<{ hoy: number; enMes: number }>()
   useEffect(() => void usoImagenes().then(setUso), [])
   if (!uso || uso.enMes === 0) return null
   return (
     <p className="text-center text-xs text-neutral-400">
-      Este mes: {uso.enMes} imágenes · ≈ US${(uso.enMes * COSTO_IMAGEN_USD).toFixed(2)}
+      Este mes: {uso.enMes} imágenes · ≈ {formato(uso.enMes * COSTO_IMAGEN_USD)}
     </p>
   )
 }

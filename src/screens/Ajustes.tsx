@@ -6,6 +6,8 @@ import { googleDisponible, entrarConGoogle, salirDeGoogle, guardarConfigNube, ty
 import { sincronizar, exportarRespaldo, importarRespaldo } from '../lib/sync'
 import { resumenParaChatGpt } from '../lib/ia'
 import { db, leerAjuste, guardarAjuste } from '../db'
+import { useMoneda, MONEDAS, fijarMoneda } from '../lib/moneda'
+import { TEMAS, leerTema, aplicarTema } from '../lib/tema'
 
 export default function Ajustes({ volver }: { volver: () => void }) {
   const [llave, setLlave] = useState('')
@@ -18,6 +20,8 @@ export default function Ajustes({ volver }: { volver: () => void }) {
   const [sync, setSync] = useState('')
   const [ultimoSync, setUltimoSync] = useState('')
   const [modelos, setModelos] = useState(['', ''])
+  const { formato, moneda } = useMoneda()
+  const [tema, setTemaLocal] = useState(leerTema())
 
   useEffect(() => {
     ;(async () => {
@@ -170,7 +174,7 @@ export default function Ajustes({ volver }: { volver: () => void }) {
           <div className="grid grid-cols-3 gap-2 text-center">
             <Mini valor={uso.hoy} texto="Hoy" />
             <Mini valor={uso.enMes} texto="Este Mes" />
-            <Mini valor={`$${(uso.enMes * COSTO_IMAGEN_USD).toFixed(2)}`} texto="Aprox." />
+            <Mini valor={formato(uso.enMes * COSTO_IMAGEN_USD)} texto="Aprox." />
           </div>
           <Fila texto="Mostrar Probador">
             <Interruptor activo={probador} alCambiar={async (v) => (setProbador(v), await guardarAjuste('probadorAutomatico', v))} />
@@ -182,7 +186,45 @@ export default function Ajustes({ volver }: { volver: () => void }) {
               <button onClick={async () => { const v = Math.min(30, tope + 1); setTope(v); await guardarAjuste('topeDiarioImagenes', v) }} className="w-9 h-9 rounded-full bg-rosa-100 text-lg">+</button>
             </div>
           </Fila>
-          <p className="text-xs text-neutral-400">Cada imagen ≈ US${COSTO_IMAGEN_USD.toFixed(2)}, cobrada por Google a tu cuenta. Gemini y ChatGPT siguen gratis.</p>
+          <p className="text-xs text-neutral-400">Cada imagen ≈ {formato(COSTO_IMAGEN_USD)} (referencial), cobrada por Google a tu cuenta. Gemini y ChatGPT siguen gratis.</p>
+        </Tarjeta>
+
+        {/* Apariencia */}
+        <Tarjeta className="space-y-4">
+          <Cabecera icono="🎨" titulo="Mi Estilo De App" />
+          <div className="grid grid-cols-4 gap-2">
+            {TEMAS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => (aplicarTema(t.id), setTemaLocal(t.id))}
+                className={`rounded-2xl p-2 flex flex-col items-center gap-1 border-2 ${tema === t.id ? 'border-tinta' : 'border-transparent'}`}
+              >
+                <span className="flex -space-x-2">
+                  {t.colores.map((c) => (
+                    <span key={c} className="w-6 h-6 rounded-full border-2 border-white" style={{ background: c }} />
+                  ))}
+                </span>
+                <span className="text-[11px] font-bold uppercase">{t.nombre}</span>
+              </button>
+            ))}
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">Moneda Referencial</p>
+            <div className="grid grid-cols-3 gap-2">
+              {MONEDAS.map((m) => (
+                <button
+                  key={m.codigo}
+                  onClick={() => fijarMoneda(m.codigo)}
+                  className={`h-14 rounded-2xl font-semibold border-2 flex flex-col items-center justify-center ${moneda === m.codigo ? 'bg-tinta text-white border-tinta' : 'bg-white border-rosa-200'}`}
+                >
+                  <span>
+                    {m.bandera} {m.simbolo}
+                  </span>
+                  <span className="text-[10px] uppercase opacity-70">{m.nombre}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </Tarjeta>
 
         {/* Respaldo */}

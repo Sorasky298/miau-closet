@@ -25,3 +25,14 @@ body {
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 .ocultar-scroll::-webkit-scrollbar { display: none; }
 .ocultar-scroll { scrollbar-width: none; }
+
+/* ---------- Temas de color ---------- */
+[data-tema="lavanda"] {
+  --color-rosa-50: #F7F5FB; --color-rosa-100: #ECE6F6; --color-rosa-200: #D9CDEE; --color-rosa-300: #B9A5DE; --color-rosa-500: #7D62B8;
+}
+[data-tema="durazno"] {
+  --color-rosa-50: #FCF7F3; --color-rosa-100: #F8E6D8; --color-rosa-200: #F1CDB2; --color-rosa-300: #E6A57C; --color-rosa-500: #C66B3D;
+}
+[data-tema="menta"] {
+  --color-rosa-50: #F4FAF7; --color-rosa-100: #E1F2EA; --color-rosa-200: #C3E4D4; --color-rosa-300: #8FCBB0; --color-rosa-500: #3E8E6B;
+}
