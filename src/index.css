@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+@theme {
+  --color-rosa-50: #FBF5F3;
+  --color-rosa-100: #F6E4E4;
+  --color-rosa-200: #EFCFD1;
+  --color-rosa-300: #E7A9B0;
+  --color-rosa-500: #C9727D;
+  --color-tinta: #141414;
+  --font-sans: ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  --font-display: "Didot", "Bodoni 72", "Playfair Display", Georgia, serif;
+}
+
+html, body, #root { height: 100%; }
+body {
+  background: var(--color-rosa-50);
+  color: var(--color-tinta);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+.safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 12px); }
+.safe-top { padding-top: max(env(safe-area-inset-top), 16px); }
