@@ -1,53 +1,67 @@
 import { useEffect, useState } from 'react'
 import NavBar, { type Ruta } from './components/NavBar'
-import { Pantalla, Titulo, Tarjeta } from './components/ui'
+import { Avisos } from './components/comunes'
 import Onboarding from './screens/Onboarding'
 import Inicio from './screens/Inicio'
 import Ajustes from './screens/Ajustes'
+import Agregar from './screens/Agregar'
+import Closet from './screens/Closet'
+import Outfits from './screens/Outfits'
+import Perfil from './screens/Perfil'
+import Temporada from './screens/Temporada'
+import Compras from './screens/Compras'
+import Maleta from './screens/Maleta'
 import { leerAjuste, pedirPersistencia } from './db'
+import { sincronizar } from './lib/sync'
 
-const rutaInicial = (): Ruta => (location.hash.slice(1) as Ruta) || 'inicio'
+export type RutaApp = Ruta
+
+function leerHash(): { ruta: RutaApp; param?: string } {
+  const [r, p] = location.hash.slice(1).split('/')
+  return { ruta: (r as RutaApp) || 'inicio', param: p }
+}
 
 export default function App() {
   const [listo, setListo] = useState<boolean | null>(null)
-  const [ruta, setRuta] = useState<Ruta>(rutaInicial)
+  const [{ ruta, param }, setNav] = useState(leerHash)
 
   useEffect(() => {
     pedirPersistencia()
     leerAjuste('onboardingListo', false).then(setListo)
-    const alCambiar = () => setRuta(rutaInicial())
+    const alCambiar = () => setNav(leerHash())
     addEventListener('hashchange', alCambiar)
     return () => removeEventListener('hashchange', alCambiar)
   }, [])
 
-  const ir = (r: Ruta) => {
-    location.hash = r
+  // Sincroniza en segundo plano al abrir (si entró con Google)
+  useEffect(() => {
+    if (!listo) return
+    leerAjuste('googleUsuario', null).then((u) => u && sincronizar().catch(() => undefined))
+  }, [listo])
+
+  const ir = (r: RutaApp, p?: string) => {
+    location.hash = p ? `${r}/${p}` : r
     scrollTo(0, 0)
   }
 
   if (listo === null) return null
   if (!listo) return <Onboarding alTerminar={() => setListo(true)} />
 
+  const conBarra: RutaApp[] = ['inicio', 'closet', 'agregar', 'outfits', 'perfil']
+
   return (
     <>
+      <Avisos />
       {ruta === 'inicio' && <Inicio ir={ir} />}
-      {ruta === 'ajustes' && <Ajustes volver={() => ir('inicio')} />}
-      {ruta === 'closet' && <EnConstruccion titulo="Mi Clóset" />}
-      {ruta === 'agregar' && <EnConstruccion titulo="Agregar" />}
-      {ruta === 'outfits' && <EnConstruccion titulo="Outfits" />}
-      {ruta === 'perfil' && <EnConstruccion titulo="Mi Perfil" />}
-      {ruta !== 'ajustes' && <NavBar actual={ruta} ir={ir} />}
+      {ruta === 'closet' && <Closet verOutfitsCon={(id) => ir('outfits', id)} />}
+      {ruta === 'agregar' && <Agregar irAjustes={() => ir('ajustes')} />}
+      {ruta === 'outfits' && <Outfits incluirId={param} limpiarIncluir={() => ir('outfits')} />}
+      {ruta === 'perfil' && <Perfil />}
+      {ruta === 'ajustes' && <Ajustes volver={() => history.back()} />}
+      {ruta === 'temporada' && <Temporada volver={() => ir('inicio')} />}
+      {ruta === 'compras' && <Compras volver={() => ir('inicio')} />}
+      {ruta === 'maleta' && <Maleta volver={() => ir('inicio')} />}
+      {conBarra.includes(ruta) && <NavBar actual={ruta as Ruta} ir={ir} />}
     </>
-  )
-}
-
-function EnConstruccion({ titulo }: { titulo: string }) {
-  return (
-    <Pantalla>
-      <Titulo>{titulo}</Titulo>
-      <Tarjeta>
-        <p className="text-neutral-600">Módulo en desarrollo.</p>
-      </Tarjeta>
-    </Pantalla>
   )
 }

@@ -48,3 +48,91 @@ export function Aviso({ tipo = 'info', children }: { tipo?: 'info' | 'ok' | 'err
 export function Pantalla({ children }: { children: ReactNode }) {
   return <main className="safe-top px-5 pb-28 max-w-xl mx-auto">{children}</main>
 }
+
+/* ---------- Hoja inferior (modal móvil) ---------- */
+export function Hoja({ abierta, alCerrar, titulo, children }: { abierta: boolean; alCerrar: () => void; titulo?: ReactNode; children: ReactNode }) {
+  if (!abierta) return null
+  return (
+    <div className="fixed inset-0 z-40 flex items-end justify-center">
+      <button aria-label="Cerrar" onClick={alCerrar} className="absolute inset-0 bg-black/40 animate-[fade_.2s]" />
+      <div className="relative w-full max-w-xl bg-rosa-50 rounded-t-[2rem] p-5 safe-bottom max-h-[92vh] overflow-y-auto animate-[subir_.25s_ease-out]">
+        <div className="w-12 h-1.5 rounded-full bg-rosa-200 mx-auto mb-4" />
+        {titulo && <h2 className="font-display text-2xl uppercase tracking-wider mb-4 text-center">{titulo}</h2>}
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/* ---------- Chips seleccionables ---------- */
+export function Chips<T extends string>({
+  opciones,
+  valor,
+  alCambiar,
+  multiple = false,
+  iconos,
+  fila = false,
+}: {
+  fila?: boolean
+  opciones: readonly T[]
+  valor: T[] | T | undefined
+  alCambiar: (v: T[]) => void
+  multiple?: boolean
+  iconos?: Partial<Record<T, string>>
+}) {
+  const sel = Array.isArray(valor) ? valor : valor ? [valor] : []
+  return (
+    <div className={`flex gap-2 ${fila ? 'flex-nowrap' : 'flex-wrap'}`}>
+      {opciones.map((o) => {
+        const activo = sel.includes(o)
+        return (
+          <button
+            key={o}
+            onClick={() => alCambiar(multiple ? (activo ? sel.filter((x) => x !== o) : [...sel, o]) : activo ? [] : [o])}
+            className={`shrink-0 whitespace-nowrap px-4 h-10 rounded-full text-sm font-semibold border-2 transition ${
+              activo ? 'bg-tinta text-white border-tinta' : 'bg-white border-rosa-200 text-neutral-700'
+            }`}
+          >
+            {iconos?.[o] && <span className="mr-1">{iconos[o]}</span>}
+            {o}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ---------- Cargando ---------- */
+export function Cargando({ texto }: { texto?: string }) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-10 text-neutral-500">
+      <div className="text-4xl animate-bounce">🐾</div>
+      {texto && <p className="text-sm font-semibold uppercase tracking-wide">{texto}</p>}
+    </div>
+  )
+}
+
+/* ---------- Botón cuadrado con icono (menús) ---------- */
+export function Mosaico({ icono, texto, sub, onClick, destacado }: { icono: string; texto: string; sub?: string; onClick: () => void; destacado?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-3xl p-4 text-left flex flex-col gap-2 border transition active:scale-[.98] ${
+        destacado ? 'bg-tinta text-white border-tinta' : 'bg-white border-rosa-100'
+      }`}
+    >
+      <span className="text-3xl">{icono}</span>
+      <span className="font-semibold uppercase tracking-wide text-sm leading-tight">{texto}</span>
+      {sub && <span className={`text-xs ${destacado ? 'text-white/70' : 'text-neutral-500'}`}>{sub}</span>}
+    </button>
+  )
+}
+
+/* ---------- Encabezado con volver ---------- */
+export function Volver({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="h-10 px-4 -ml-2 rounded-full text-sm font-semibold uppercase tracking-wide mb-2 active:bg-rosa-100">
+      ← Volver
+    </button>
+  )
+}

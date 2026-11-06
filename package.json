@@ -8,8 +8,10 @@
   },
   "dependencies": {
     "@google/genai": "^3.0.0",
+    "@imgly/background-removal": "^1.7.0",
     "dexie": "^4.4.7",
     "dexie-react-hooks": "^4.4.0",
+    "jszip": "^3.10.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

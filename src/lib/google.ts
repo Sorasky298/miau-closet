@@ -65,7 +65,7 @@ export async function obtenerToken(silencioso = false): Promise<string> {
   })
 }
 
-async function g(url: string, init: RequestInit = {}) {
+export async function g(url: string, init: RequestInit = {}) {
   const t = await obtenerToken(true)
   const r = await fetch(url, { ...init, headers: { ...(init.headers ?? {}), Authorization: `Bearer ${t}` } })
   if (!r.ok) throw new Error(`Google ${r.status}`)

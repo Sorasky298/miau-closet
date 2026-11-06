@@ -3,10 +3,12 @@ import { Boton, Tarjeta, Aviso, Pantalla } from '../components/ui'
 import { entrarConGoogle, googleDisponible, leerConfigNube, guardarConfigNube, type UsuarioGoogle } from '../lib/google'
 import { guardarLlave, probarLlave } from '../lib/gemini'
 import { guardarAjuste } from '../db'
+import { actualizarPerfil } from './Perfil'
+import { buscarCiudades, type Ciudad } from '../lib/clima'
 
 const URL_LLAVE = 'https://aistudio.google.com/apikey'
 
-type Paso = 'bienvenida' | 'llave' | 'listo'
+type Paso = 'bienvenida' | 'llave' | 'ciudad' | 'listo'
 
 export default function Onboarding({ alTerminar }: { alTerminar: () => void }) {
   const [paso, setPaso] = useState<Paso>('bienvenida')
@@ -35,7 +37,7 @@ export default function Onboarding({ alTerminar }: { alTerminar: () => void }) {
       const nube = await leerConfigNube().catch(() => null)
       if (nube?.llaveIa && (await probarLlave(nube.llaveIa)).ok) {
         await guardarLlave(nube.llaveIa)
-        setPaso('listo')
+        setPaso('ciudad')
       } else {
         setPaso('llave')
       }
@@ -59,7 +61,7 @@ export default function Onboarding({ alTerminar }: { alTerminar: () => void }) {
     await guardarLlave(llave)
     if (usuario) await guardarConfigNube({ llaveIa: llave.trim() }).catch(() => undefined)
     setOcupado(false)
-    setPaso('listo')
+    setPaso('ciudad')
   }
 
   async function pegar() {
@@ -73,6 +75,7 @@ export default function Onboarding({ alTerminar }: { alTerminar: () => void }) {
   }
 
   async function terminar() {
+    await actualizarPerfil({ nombre: usuario?.nombre })
     await guardarAjuste('onboardingListo', true)
     alTerminar()
   }
@@ -89,7 +92,7 @@ export default function Onboarding({ alTerminar }: { alTerminar: () => void }) {
 
       {paso === 'bienvenida' && (
         <Tarjeta className="space-y-4">
-          <h2 className="text-xl font-semibold">Hola, Gatita 🐾</h2>
+          <h2 className="text-xl font-semibold">Hola, Gatofeo 🐾</h2>
           <p className="text-neutral-600">Entra con tu cuenta de Google para guardar tu clóset y usarlo en todos tus dispositivos.</p>
           {googleDisponible() ? (
             <Boton onClick={entrar} disabled={ocupado} icono="G">
@@ -140,10 +143,12 @@ export default function Onboarding({ alTerminar }: { alTerminar: () => void }) {
         </Tarjeta>
       )}
 
+      {paso === 'ciudad' && <PasoCiudad alTerminar={() => setPaso('listo')} />}
+
       {paso === 'listo' && (
         <Tarjeta className="space-y-4 text-center">
           <div className="text-5xl">✅</div>
-          <h2 className="text-xl font-semibold">¡Todo Listo{usuario?.nombre ? `, ${usuario.nombre}` : ''}!</h2>
+          <h2 className="text-xl font-semibold">¡Todo Listo, Gatofeo!</h2>
           <p className="text-neutral-600">Tu IA está conectada. Ahora vamos a llenar tu clóset.</p>
           <Boton onClick={terminar} icono="🐾">
             Empezar
@@ -155,10 +160,10 @@ export default function Onboarding({ alTerminar }: { alTerminar: () => void }) {
 }
 
 function Progreso({ paso }: { paso: Paso }) {
-  const i = ['bienvenida', 'llave', 'listo'].indexOf(paso)
+  const i = ['bienvenida', 'llave', 'ciudad', 'listo'].indexOf(paso)
   return (
     <div className="flex gap-2 justify-center mb-5">
-      {[0, 1, 2].map((n) => (
+      {[0, 1, 2, 3].map((n) => (
         <span key={n} className={`h-2 rounded-full transition-all ${n <= i ? 'w-10 bg-tinta' : 'w-5 bg-rosa-200'}`} />
       ))}
     </div>
@@ -171,5 +176,41 @@ function PasoLlave({ n, texto }: { n: number; texto: string }) {
       <span className="shrink-0 w-7 h-7 rounded-full bg-rosa-200 font-bold flex items-center justify-center text-sm">{n}</span>
       <span className="text-neutral-700 pt-0.5">{texto}</span>
     </li>
+  )
+}
+
+function PasoCiudad({ alTerminar }: { alTerminar: () => void }) {
+  const [q, setQ] = useState('')
+  const [res, setRes] = useState<Ciudad[]>([])
+  useEffect(() => {
+    const t = setTimeout(() => buscarCiudades(q).then(setRes).catch(() => setRes([])), 350)
+    return () => clearTimeout(t)
+  }, [q])
+  return (
+    <Tarjeta className="space-y-4">
+      <h2 className="text-xl font-semibold">¿Dónde Vives? 📍</h2>
+      <p className="text-neutral-600 text-sm">Para el clima y tus temporadas.</p>
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Tu ciudad…"
+        className="w-full h-14 rounded-2xl border-2 border-rosa-200 px-4 bg-rosa-50 text-lg"
+      />
+      {res.map((c) => (
+        <button
+          key={`${c.lat}${c.lon}`}
+          onClick={async () => {
+            await actualizarPerfil({ ciudad: `${c.nombre}, ${c.pais}`, lat: c.lat, lon: c.lon, hemisferio: c.lat < 0 ? 'Sur' : 'Norte' })
+            alTerminar()
+          }}
+          className="w-full text-left px-4 py-3 rounded-2xl bg-rosa-50 font-semibold"
+        >
+          {c.nombre} <span className="text-neutral-400 font-normal">· {c.pais}</span>
+        </button>
+      ))}
+      <button onClick={alTerminar} className="w-full text-sm text-neutral-500 font-semibold py-2">
+        Después
+      </button>
+    </Tarjeta>
   )
 }

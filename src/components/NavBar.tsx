@@ -1,4 +1,4 @@
-export type Ruta = 'inicio' | 'closet' | 'agregar' | 'outfits' | 'perfil' | 'ajustes'
+export type Ruta = 'inicio' | 'closet' | 'agregar' | 'outfits' | 'perfil' | 'ajustes' | 'temporada' | 'compras' | 'maleta'
 
 const items: { ruta: Ruta; icono: string; texto: string }[] = [
   { ruta: 'inicio', icono: '🏠', texto: 'Inicio' },

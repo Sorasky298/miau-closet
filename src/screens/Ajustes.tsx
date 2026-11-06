@@ -1,144 +1,276 @@
 import { useEffect, useState } from 'react'
-import { Boton, Tarjeta, Titulo, Aviso, Pantalla } from '../components/ui'
-import { obtenerLlave, guardarLlave, probarLlave, modeloTexto, MODELO_TEXTO_DEFECTO } from '../lib/gemini'
+import { Boton, Tarjeta, Titulo, Aviso, Pantalla, Volver } from '../components/ui'
+import { avisar } from '../components/comunes'
+import { obtenerLlave, guardarLlave, probarLlave, modeloTexto, modeloImagen, usoImagenes, COSTO_IMAGEN_USD } from '../lib/gemini'
 import { googleDisponible, entrarConGoogle, salirDeGoogle, guardarConfigNube, type UsuarioGoogle } from '../lib/google'
-import { leerAjuste, guardarAjuste } from '../db'
+import { sincronizar, exportarRespaldo, importarRespaldo } from '../lib/sync'
+import { resumenParaChatGpt } from '../lib/ia'
+import { db, leerAjuste, guardarAjuste } from '../db'
 
 export default function Ajustes({ volver }: { volver: () => void }) {
   const [llave, setLlave] = useState('')
+  const [editarLlave, setEditarLlave] = useState(false)
   const [estado, setEstado] = useState<{ tipo: 'ok' | 'error' | 'info'; texto: string } | null>(null)
   const [usuario, setUsuario] = useState<UsuarioGoogle | null>(null)
-  const [modelo, setModelo] = useState(MODELO_TEXTO_DEFECTO)
-  const [probador, setProbador] = useState(false)
+  const [probador, setProbador] = useState(true)
   const [tope, setTope] = useState(4)
+  const [uso, setUso] = useState({ hoy: 0, enMes: 0 })
+  const [sync, setSync] = useState('')
+  const [ultimoSync, setUltimoSync] = useState('')
+  const [modelos, setModelos] = useState(['', ''])
 
   useEffect(() => {
     ;(async () => {
       setLlave(await obtenerLlave())
       setUsuario(await leerAjuste<UsuarioGoogle | null>('googleUsuario', null))
-      setModelo(await modeloTexto())
-      setProbador(await leerAjuste('probadorAutomatico', false))
+      setProbador(await leerAjuste('probadorAutomatico', true))
       setTope(await leerAjuste('topeDiarioImagenes', 4))
+      setUso(await usoImagenes())
+      setUltimoSync(await leerAjuste('ultimoSync', ''))
+      setModelos([await modeloTexto(), await modeloImagen()])
     })()
   }, [])
 
   async function probar() {
-    setEstado({ tipo: 'info', texto: 'Probando conexión…' })
+    setEstado({ tipo: 'info', texto: 'Probando…' })
     const r = await probarLlave(llave)
     if (r.ok) {
       await guardarLlave(llave)
       if (usuario) await guardarConfigNube({ llaveIa: llave.trim() }).catch(() => undefined)
-      setEstado({ tipo: 'ok', texto: 'Conexión correcta ✅' })
+      setEstado({ tipo: 'ok', texto: 'Conectada ✅' })
+      setEditarLlave(false)
+      setModelos([await modeloTexto(), await modeloImagen()])
     } else setEstado({ tipo: 'error', texto: r.error ?? 'No funcionó' })
   }
 
-  const oculta = llave ? `${llave.slice(0, 6)}••••••${llave.slice(-4)}` : 'Sin conectar'
+  async function pegar() {
+    const t = await navigator.clipboard?.readText().catch(() => '')
+    if (t) setLlave(t.trim())
+  }
+
+  async function sincronizarAhora() {
+    setSync('Conectando…')
+    try {
+      const r = await sincronizar(setSync)
+      setSync(`✓ Listo · ${r.bajadas} bajadas · ${r.subidas} fotos subidas`)
+      setUltimoSync(await leerAjuste('ultimoSync', ''))
+    } catch {
+      setSync('No se pudo sincronizar. Vuelve a entrar con Google.')
+    }
+  }
+
+  async function exportar() {
+    avisar('📦 Preparando respaldo…')
+    const f = await exportarRespaldo()
+    if (navigator.canShare?.({ files: [f] })) {
+      await navigator.share({ files: [f] }).catch(() => undefined)
+    } else {
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(f)
+      a.download = f.name
+      a.click()
+    }
+  }
+
+  async function importar(f?: File) {
+    if (!f) return
+    const n = await importarRespaldo(f)
+    avisar(`✓ ${n} registros restaurados`)
+  }
+
+  async function copiarParaChatGpt() {
+    const [prendas, perfil] = await Promise.all([db.prendas.toArray(), db.perfil.get('yo')])
+    await navigator.clipboard.writeText(resumenParaChatGpt(prendas, perfil))
+    avisar('📋 Copiado. Pégalo en ChatGPT')
+    setTimeout(() => window.open('https://chatgpt.com/', '_blank'), 600)
+  }
+
+  const oculta = llave ? `${llave.slice(0, 6)}••••${llave.slice(-4)}` : ''
 
   return (
     <Pantalla>
-      <button onClick={volver} className="text-sm font-semibold uppercase tracking-wide mb-4">
-        ← Volver
-      </button>
+      <Volver onClick={volver} />
       <Titulo>Ajustes</Titulo>
 
       <div className="space-y-4">
+        {/* IA */}
         <Tarjeta className="space-y-3">
-          <h2 className="font-semibold uppercase tracking-wide text-sm">🔑 Llave IA</h2>
-          <p className="text-sm text-neutral-500">Actual: {oculta}</p>
-          <input
-            value={llave}
-            onChange={(e) => setLlave(e.target.value)}
-            placeholder="AIza…"
-            className="w-full rounded-2xl border-2 border-rosa-200 px-4 py-3 bg-rosa-50 text-sm"
-            autoCapitalize="off"
-            autoCorrect="off"
-          />
-          <Boton onClick={probar} icono="⚡">
-            Probar Conexión
-          </Boton>
-          <Boton variante="secundario" icono="↗" onClick={() => window.open('https://aistudio.google.com/apikey', '_blank')}>
-            Abrir AI Studio
-          </Boton>
+          <Cabecera icono="🔑" titulo="Mi IA" estado={llave ? 'Conectada' : 'Sin Conectar'} ok={Boolean(llave)} />
+          {llave && !editarLlave ? (
+            <div className="flex gap-2">
+              <span className="flex-1 h-12 rounded-2xl bg-rosa-50 px-4 flex items-center font-mono text-sm">{oculta}</span>
+              <Boton variante="secundario" className="!w-auto" onClick={() => setEditarLlave(true)}>
+                Cambiar
+              </Boton>
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                <input
+                  value={llave}
+                  onChange={(e) => setLlave(e.target.value)}
+                  placeholder="AIza…"
+                  className="flex-1 h-12 rounded-2xl border-2 border-rosa-200 px-4 bg-rosa-50 text-sm min-w-0"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                />
+                <Boton variante="suave" className="!w-auto" onClick={pegar}>
+                  📋
+                </Boton>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Boton variante="secundario" icono="↗" onClick={() => window.open('https://aistudio.google.com/apikey', '_blank')}>
+                  Obtener
+                </Boton>
+                <Boton icono="⚡" onClick={probar}>
+                  Conectar
+                </Boton>
+              </div>
+            </>
+          )}
           {estado && <Aviso tipo={estado.tipo}>{estado.texto}</Aviso>}
         </Tarjeta>
 
+        {/* Google + Sync */}
         <Tarjeta className="space-y-3">
-          <h2 className="font-semibold uppercase tracking-wide text-sm">👤 Cuenta Google</h2>
+          <Cabecera icono="☁️" titulo="Mis Dispositivos" estado={usuario ? 'Sincronizado' : 'Solo Este'} ok={Boolean(usuario)} />
           {usuario ? (
             <>
               <div className="flex items-center gap-3">
-                {usuario.foto && <img src={usuario.foto} className="w-10 h-10 rounded-full" alt="" />}
-                <div>
+                {usuario.foto && <img src={usuario.foto} className="w-11 h-11 rounded-full" alt="" />}
+                <div className="flex-1 min-w-0">
                   <p className="font-semibold">{usuario.nombre}</p>
-                  <p className="text-sm text-neutral-500">{usuario.email}</p>
+                  <p className="text-xs text-neutral-500 truncate">{usuario.email}</p>
                 </div>
               </div>
-              <Boton variante="peligro" onClick={async () => (await salirDeGoogle(), setUsuario(null))}>
-                Cerrar Sesión
+              <Boton icono="🔄" onClick={sincronizarAhora}>
+                Sincronizar Ahora
               </Boton>
+              {sync && <Aviso>{sync}</Aviso>}
+              {ultimoSync && <p className="text-xs text-neutral-400 text-center">Último: {new Date(ultimoSync).toLocaleString('es')}</p>}
+              <button className="w-full text-sm text-rosa-500 font-semibold" onClick={async () => (await salirDeGoogle(), setUsuario(null))}>
+                Cerrar Sesión
+              </button>
             </>
           ) : googleDisponible() ? (
-            <Boton icono="G" onClick={async () => setUsuario(await entrarConGoogle())}>
-              Entrar con Google
-            </Boton>
+            <>
+              <p className="text-sm text-neutral-500">Usa tu clóset en el celular y la tablet. Se guarda en tu Google Drive.</p>
+              <Boton icono="G" onClick={async () => setUsuario(await entrarConGoogle())}>
+                Entrar con Google
+              </Boton>
+            </>
           ) : (
-            <Aviso>Pendiente: configurar Client ID de Google.</Aviso>
+            <Aviso>Disponible pronto. Mientras tanto usa Respaldo ↓</Aviso>
           )}
         </Tarjeta>
 
+        {/* Probador */}
         <Tarjeta className="space-y-3">
-          <h2 className="font-semibold uppercase tracking-wide text-sm">🪄 Probador Automático</h2>
-          <p className="text-sm text-neutral-500">
-            Genera la imagen del outfit puesto dentro de la app. Tiene costo por imagen (~US$0.03–0.07) o usa tus créditos de Google AI Pro. Apagado,
-            igual puedes usar Probar en Gemini o Probar en ChatGPT gratis.
-          </p>
-          <Interruptor
-            activo={probador}
-            alCambiar={async (v) => (setProbador(v), await guardarAjuste('probadorAutomatico', v))}
-            texto={probador ? 'Activado' : 'Apagado'}
-          />
-          {probador && (
-            <label className="flex items-center justify-between text-sm">
-              <span>Tope de imágenes por día</span>
+          <Cabecera icono="🪄" titulo="Probador IA" estado={probador ? 'Activo' : 'Apagado'} ok={probador} />
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <Mini valor={uso.hoy} texto="Hoy" />
+            <Mini valor={uso.enMes} texto="Este Mes" />
+            <Mini valor={`$${(uso.enMes * COSTO_IMAGEN_USD).toFixed(2)}`} texto="Aprox." />
+          </div>
+          <Fila texto="Mostrar Probador">
+            <Interruptor activo={probador} alCambiar={async (v) => (setProbador(v), await guardarAjuste('probadorAutomatico', v))} />
+          </Fila>
+          <Fila texto="Tope Por Día">
+            <div className="flex items-center gap-2">
+              <button onClick={async () => { const v = Math.max(1, tope - 1); setTope(v); await guardarAjuste('topeDiarioImagenes', v) }} className="w-9 h-9 rounded-full bg-rosa-100 text-lg">−</button>
+              <span className="w-6 text-center font-semibold">{tope}</span>
+              <button onClick={async () => { const v = Math.min(30, tope + 1); setTope(v); await guardarAjuste('topeDiarioImagenes', v) }} className="w-9 h-9 rounded-full bg-rosa-100 text-lg">+</button>
+            </div>
+          </Fila>
+          <p className="text-xs text-neutral-400">Cada imagen ≈ US${COSTO_IMAGEN_USD.toFixed(2)}, cobrada por Google a tu cuenta. Gemini y ChatGPT siguen gratis.</p>
+        </Tarjeta>
+
+        {/* Respaldo */}
+        <Tarjeta className="space-y-3">
+          <Cabecera icono="📦" titulo="Respaldo" />
+          <div className="grid grid-cols-2 gap-2">
+            <Boton variante="secundario" icono="⬇️" onClick={exportar}>
+              Guardar
+            </Boton>
+            <label className="w-full min-h-14 rounded-2xl px-5 font-semibold flex items-center justify-center gap-2 bg-white border-2 border-tinta cursor-pointer">
+              ⬆️ Restaurar
+              <input type="file" accept=".zip,application/zip" className="hidden" onChange={(e) => importar(e.target.files?.[0])} />
+            </label>
+          </div>
+        </Tarjeta>
+
+        {/* ChatGPT */}
+        <Tarjeta className="space-y-3">
+          <Cabecera icono="💬" titulo="Mi Clóset En ChatGPT" />
+          <p className="text-sm text-neutral-500">Copia tu clóset y perfil para conversar con tu ChatGPT.</p>
+          <Boton variante="suave" icono="📋" onClick={copiarParaChatGpt}>
+            Copiar Y Abrir ChatGPT
+          </Boton>
+        </Tarjeta>
+
+        {/* Avanzado */}
+        <details className="bg-white rounded-3xl p-5 border border-rosa-100">
+          <summary className="font-semibold uppercase tracking-wide text-sm">⚙️ Avanzado</summary>
+          <div className="space-y-3 mt-4 text-sm">
+            <label className="block">
+              Modelo Texto
               <input
-                type="number"
-                min={1}
-                max={20}
-                value={tope}
-                onChange={async (e) => {
-                  const v = Math.max(1, Number(e.target.value) || 1)
-                  setTope(v)
-                  await guardarAjuste('topeDiarioImagenes', v)
-                }}
-                className="w-20 rounded-xl border-2 border-rosa-200 px-3 py-2 text-center"
+                value={modelos[0]}
+                onChange={async (e) => (setModelos([e.target.value, modelos[1]]), await guardarAjuste('modeloTexto', e.target.value))}
+                className="mt-1 w-full h-11 rounded-xl border-2 border-rosa-200 px-3 bg-rosa-50"
               />
             </label>
-          )}
-        </Tarjeta>
+            <label className="block">
+              Modelo Imagen
+              <input
+                value={modelos[1]}
+                onChange={async (e) => (setModelos([modelos[0], e.target.value]), await guardarAjuste('modeloImagen', e.target.value))}
+                className="mt-1 w-full h-11 rounded-xl border-2 border-rosa-200 px-3 bg-rosa-50"
+              />
+            </label>
+          </div>
+        </details>
 
-        <Tarjeta className="space-y-3">
-          <h2 className="font-semibold uppercase tracking-wide text-sm">⚙️ Avanzado</h2>
-          <label className="block text-sm">
-            Modelo de IA
-            <input
-              value={modelo}
-              onChange={async (e) => (setModelo(e.target.value), await guardarAjuste('modeloTexto', e.target.value))}
-              className="mt-1 w-full rounded-2xl border-2 border-rosa-200 px-4 py-3 bg-rosa-50"
-            />
-          </label>
-        </Tarjeta>
+        <p className="text-center text-xs text-neutral-400 pt-2">MIAU CLÓSET · v1.0 · Hecho con 🐾 para Gatofeo</p>
       </div>
     </Pantalla>
   )
 }
 
-function Interruptor({ activo, alCambiar, texto }: { activo: boolean; alCambiar: (v: boolean) => void; texto: string }) {
+function Cabecera({ icono, titulo, estado, ok }: { icono: string; titulo: string; estado?: string; ok?: boolean }) {
   return (
-    <button onClick={() => alCambiar(!activo)} className="flex items-center gap-3">
-      <span className={`w-14 h-8 rounded-full p-1 transition ${activo ? 'bg-tinta' : 'bg-rosa-200'}`}>
-        <span className={`block w-6 h-6 rounded-full bg-white shadow transition ${activo ? 'translate-x-6' : ''}`} />
-      </span>
-      <span className="font-semibold">{texto}</span>
+    <div className="flex items-center gap-3">
+      <span className="text-2xl">{icono}</span>
+      <h2 className="flex-1 font-semibold uppercase tracking-wide text-sm">{titulo}</h2>
+      {estado && (
+        <span className={`text-[10px] font-bold uppercase rounded-full px-3 py-1 ${ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rosa-100 text-rosa-500'}`}>{estado}</span>
+      )}
+    </div>
+  )
+}
+
+function Mini({ valor, texto }: { valor: number | string; texto: string }) {
+  return (
+    <div className="bg-rosa-50 rounded-2xl py-2">
+      <p className="font-display text-xl">{valor}</p>
+      <p className="text-[10px] font-bold uppercase text-neutral-500">{texto}</p>
+    </div>
+  )
+}
+
+function Fila({ texto, children }: { texto: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm font-semibold">{texto}</span>
+      {children}
+    </div>
+  )
+}
+
+function Interruptor({ activo, alCambiar }: { activo: boolean; alCambiar: (v: boolean) => void }) {
+  return (
+    <button onClick={() => alCambiar(!activo)} className={`w-14 h-8 rounded-full p-1 transition ${activo ? 'bg-tinta' : 'bg-rosa-200'}`}>
+      <span className={`block w-6 h-6 rounded-full bg-white shadow transition ${activo ? 'translate-x-6' : ''}`} />
     </button>
   )
 }
