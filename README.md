@@ -2,7 +2,7 @@
 
 Clóset digital con estilista IA. PWA instalable en iPhone y Android.
 
-**App:** https://sorasky298.github.io/miau-closet/
+**App:** https://miaucloset.github.io/
 
 ## Funciones
 
